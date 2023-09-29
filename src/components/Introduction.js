@@ -1,27 +1,119 @@
-// src/components/Introduction.js
-import React, { useState } from 'react';
-import { Typography, Container, Button, Stack, CircularProgress } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+    Typography,
+    Container,
+    Button,
+    Stack,
+    CircularProgress,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+} from '@mui/material';
 
 const Introduction = () => {
-    const [connectionStatus, setConnectionStatus] = useState('disconnected');
+    const [connectionStatus, setConnectionStatus] = useState(localStorage.getItem('connectionStatus') || 'disconnected');
+    const [temperatures, setTemperatures] = useState(JSON.parse(localStorage.getItem('temperatures')) || []);
+    const [intervalId, setIntervalId] = useState(null);
 
-    const connectToDevice = async () => {
-        // Simulate an API call (replace with your actual API call)
+    useEffect(() => {
+        localStorage.setItem('connectionStatus', connectionStatus);
+    }, [connectionStatus]);
+
+    useEffect(() => {
+        localStorage.setItem('temperatures', JSON.stringify(temperatures));
+    }, [temperatures]);
+
+    const connectToDevice = () => {
         setConnectionStatus('connecting');
-
-        // Simulate a delay for the API call (remove in production)
-        setTimeout(() => {
-            // Replace with your logic to check if the connection was successful
-            const connectionSuccessful = true;
-
-            if (connectionSuccessful) {
-                setConnectionStatus('connected');
-            } else {
-                // Handle connection failure
-                // You can display an error message or retry button here
+        setTimeout(async () => {
+            try {
+                const response = await fetch('http://localhost:8000/fetch_temperature');
+                if (response.ok) {
+                    setConnectionStatus('connected');
+                    const data = await response.json();
+                    const newTemperature = data.temperature;
+                    const currentTime = new Date().toLocaleString('en-US', {
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                        hour12: true,
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                    });
+                    setTemperatures((prevTemperatures) => [
+                        ...prevTemperatures,
+                        { temperature: newTemperature, time: currentTime },
+                    ]);
+                    localStorage.setItem(
+                        'temperatures',
+                        JSON.stringify([
+                            ...JSON.parse(localStorage.getItem('temperatures')),
+                            { temperature: newTemperature, time: currentTime },
+                        ])
+                    );
+                    scrollToTable();
+                    startFetchingTemperature();
+                } else {
+                    setConnectionStatus('disconnected');
+                }
+            } catch (error) {
                 setConnectionStatus('disconnected');
+                console.error('Error connecting to the device:', error);
             }
-        }, 2000);
+        }, 1500);
+    };
+
+    const startFetchingTemperature = () => {
+        const id = setInterval(async () => {
+            try {
+                const response = await fetch('http://localhost:8000/fetch_temperature');
+                if (response.ok) {
+                    const data = await response.json();
+                    const newTemperature = data.temperature;
+                    const currentTime = new Date().toLocaleString('en-US', {
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                        hour12: true,
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                    });
+                    setTemperatures((prevTemperatures) => [
+                        ...prevTemperatures,
+                        { temperature: newTemperature, time: currentTime },
+                    ]);
+                    localStorage.setItem(
+                        'temperatures',
+                        JSON.stringify([
+                            ...JSON.parse(localStorage.getItem('temperatures')),
+                            { temperature: newTemperature, time: currentTime },
+                        ])
+                    );
+                    if (connectionStatus === 'disconnected') {
+                        setConnectionStatus('connected');
+                    }
+                } else {
+                    setConnectionStatus('disconnected');
+                }
+            } catch (error) {
+                setConnectionStatus('disconnected');
+                console.error('Error fetching temperature:', error);
+            }
+        }, 60000);
+        setIntervalId(id);
+    };
+
+    const disconnectToDevice = () => {
+        setConnectionStatus('disconnected');
+        if (intervalId !== null) {
+            clearInterval(intervalId);
+            setIntervalId(null);
+        }
     };
 
     const renderButton = () => {
@@ -34,9 +126,19 @@ const Introduction = () => {
             );
         } else if (connectionStatus === 'connected') {
             return (
-                <Button variant="contained" color="success" disabled sx={{ color: 'white', width: '200px', fontWeight: 'bold' }}>
-                    Connected<span style={{ marginLeft: '5px' }}>&#10004;</span>
-                </Button>
+                <Stack direction="column" spacing={1} justifyContent="center" alignItems="center">
+                    <Button variant="contained" color="success" sx={{ color: 'white', width: '200px', fontWeight: 'bold' }}>
+                        Connected<span style={{ marginLeft: '5px' }}>&#10004;</span>
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={disconnectToDevice}
+                        sx={{ color: 'white', width: '300px', fontWeight: 'bold' }}
+                    >
+                        Disconnect to Device
+                    </Button>
+                </Stack>
             );
         } else {
             return (
@@ -49,6 +151,75 @@ const Introduction = () => {
                     Connect to Device
                 </Button>
             );
+        }
+    };
+
+    const renderTable = () => {
+        if (temperatures.length > 0) {
+            return (
+                <TableContainer
+                    sx={{
+                        width: '100%',
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        backgroundColor: 'rgba(255, 165, 0, 0.9)',
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    }}
+                >
+                    <Table>
+                        <TableHead
+                            sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            }}
+                        >
+                            <TableRow>
+                                <TableCell
+                                    sx={{
+                                        fontWeight: 'bold',
+                                    }}
+                                >
+                                    Temperature
+                                </TableCell>
+                                <TableCell
+                                    sx={{
+                                        fontWeight: 'bold',
+                                    }}
+                                >
+                                    Time
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {temperatures.map((entry, index) => (
+                                <TableRow
+                                    key={index}
+                                    sx={{
+                                        backgroundColor:
+                                            entry.temperature >= 300
+                                                ? 'red'
+                                                : 'inherit',
+                                        color:
+                                            entry.temperature >= 300
+                                                ? 'white'
+                                                : 'inherit',
+                                    }}
+                                >
+                                    <TableCell>{entry.temperature}</TableCell>
+                                    <TableCell>{entry.time}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            );
+        }
+    };
+
+    const scrollToTable = () => {
+        const table = document.getElementById('temperature-table');
+        if (table) {
+            table.scrollIntoView({ behavior: 'smooth' });
         }
     };
 
@@ -76,6 +247,7 @@ const Introduction = () => {
                     style={{ maxWidth: '100%', borderRadius: '8px' }}
                 />
                 {renderButton()}
+                <div style={{ width: '60%' }} id="temperature-table">{renderTable()}</div>
             </Stack>
         </Container>
     );
