@@ -11,11 +11,14 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    TextField,
 } from '@mui/material';
 
 const Introduction = () => {
+    console.log(JSON.parse(localStorage.getItem('temperatures')));
     const [connectionStatus, setConnectionStatus] = useState(localStorage.getItem('connectionStatus') || 'disconnected');
     const [temperatures, setTemperatures] = useState(JSON.parse(localStorage.getItem('temperatures')) || []);
+    const [email, setEmail] = useState(localStorage.getItem('email') || '');
     const [intervalId, setIntervalId] = useState(null);
 
     useEffect(() => {
@@ -45,16 +48,17 @@ const Introduction = () => {
                         year: 'numeric',
                     });
                     setTemperatures((prevTemperatures) => [
-                        ...prevTemperatures,
                         { temperature: newTemperature, time: currentTime },
+                        ...prevTemperatures,
                     ]);
                     localStorage.setItem(
                         'temperatures',
                         JSON.stringify([
-                            ...JSON.parse(localStorage.getItem('temperatures')),
                             { temperature: newTemperature, time: currentTime },
+                            ...JSON.parse(localStorage.getItem('temperatures')),
                         ])
                     );
+                    localStorage.setItem('email', email);
                     scrollToTable();
                     startFetchingTemperature();
                 } else {
@@ -126,7 +130,7 @@ const Introduction = () => {
             );
         } else if (connectionStatus === 'connected') {
             return (
-                <Stack direction="column" spacing={1} justifyContent="center" alignItems="center">
+                <>
                     <Button variant="contained" color="success" sx={{ color: 'white', width: '200px', fontWeight: 'bold' }}>
                         Connected<span style={{ marginLeft: '5px' }}>&#10004;</span>
                     </Button>
@@ -138,7 +142,7 @@ const Introduction = () => {
                     >
                         Disconnect to Device
                     </Button>
-                </Stack>
+                </>
             );
         } else {
             return (
@@ -146,6 +150,7 @@ const Introduction = () => {
                     variant="contained"
                     color="primary"
                     onClick={connectToDevice}
+                    disabled={!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/.test(email)}
                     sx={{ color: 'white', width: '200px', fontWeight: 'bold' }}
                 >
                     Connect to Device
@@ -161,7 +166,7 @@ const Introduction = () => {
                     sx={{
                         width: '100%',
                         maxHeight: '300px',
-                        overflowY: 'auto',
+                        overflowY: 'visible',
                         backgroundColor: 'rgba(255, 165, 0, 0.9)',
                         borderRadius: '10px',
                         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
@@ -199,14 +204,10 @@ const Introduction = () => {
                                             entry.temperature >= 300
                                                 ? 'red'
                                                 : 'inherit',
-                                        color:
-                                            entry.temperature >= 300
-                                                ? 'white'
-                                                : 'inherit',
                                     }}
                                 >
-                                    <TableCell>{entry.temperature}</TableCell>
-                                    <TableCell>{entry.time}</TableCell>
+                                    <TableCell sx={{ color: 'white' }}>{entry.temperature}</TableCell>
+                                    <TableCell sx={{ color: 'white' }}>{entry.time}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -246,7 +247,38 @@ const Introduction = () => {
                     alt="Gas Sensor"
                     style={{ maxWidth: '100%', borderRadius: '8px' }}
                 />
-                {renderButton()}
+                <Stack direction="column" spacing={1} justifyContent="center" alignItems="center" sx={{ width: '60%' }}>
+                    {connectionStatus !== 'connected' &&
+                        <TextField
+                            label="Email"
+                            variant="outlined"
+                            fullWidth
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            sx={{
+                                color: 'white',
+                                '& label.MuiFormLabel-root': {
+                                    color: 'white',
+                                },
+                                '& .MuiInputBase-input': {
+                                    color: 'white',
+                                },
+                                '& .MuiOutlinedInput-root': {
+                                    '& fieldset': {
+                                        borderColor: 'white',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: 'white',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: 'white',
+                                    },
+                                },
+                            }}
+                        />
+                    }
+                    {renderButton()}
+                </Stack>
                 <div style={{ width: '60%' }} id="temperature-table">{renderTable()}</div>
             </Stack>
         </Container>
